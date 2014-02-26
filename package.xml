@@ -2,7 +2,7 @@
 <package>
   <name>ahbros</name>
   <version>0.0.0</version>
-  <description>The ahbros package</description>
+  <description>ahb utilities: ros dependend fuctionality</description>
   <maintainer email="andreas.bihlmaier@gmx.de">Andreas Bihlmaier</maintainer>
   <license>MIT</license>
 
