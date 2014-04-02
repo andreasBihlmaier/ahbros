@@ -43,7 +43,7 @@ class Link:
   def __init__(self, link_tag, prefix = ''):
     self.name = link_tag.attrib['name']
     if prefix:
-      self.name = prefix + '::' + self.name
+      self.name = prefix + '_' + self.name
     self.pose = None
     self.inertial = {}
     self.collision = {}
@@ -149,9 +149,9 @@ class Joint:
     self.child = joint_tag.find('child').text
     self.parent = joint_tag.find('parent').text
     if prefix:
-      self.name = prefix + '::' + self.name
-      self.child = prefix + '::' + self.child
-      self.parent = prefix + '::' + self.parent
+      self.name = prefix + '_' + self.name
+      self.child = prefix + '_' + self.child
+      self.parent = prefix + '_' + self.parent
     self.pose = None
     self.axis = {}
 
@@ -253,7 +253,7 @@ class Model:
             #print('Setting origin of %s to %s because of pose_abs=%s and parent_pose_abs=%s' % (joint, pose_rel, pose_abs, tf2pose(parent_pose_abs_tf)))
             joint.pose = pose_rel
       if model_prefix:
-        model_name = model_prefix + '::' + model_name
+        model_name = model_prefix + '_' + model_name
       self.load_sdf(included_sdf_filename, model_name)
 
   def absolute_position(self, link):
