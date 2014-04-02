@@ -2,6 +2,7 @@
 
 from __future__ import print_function
 
+import sys
 import itertools
 import os
 import argparse
@@ -12,6 +13,9 @@ from tf.transformations import *
 def rounded(val):
   return int(round(val,6) * 1e5) / 1.0e5
 
+def str2float_list(s):
+  return [float(i) for i in s.split()]
+
 def prettyXML(uglyXML):
   return xml.dom.minidom.parseString(uglyXML).toprettyxml(indent='  ')
 
@@ -21,13 +25,15 @@ def pose2origin(pose):
   return xyz, rpy
 
 def pose2tf(pose):
-  pose_float = [float(i) for i in pose.split()]
+  pose_float = str2float_list(pose)
   translate = pose_float[:3]
   angles = pose_float[3:]
   return compose_matrix(None, None, angles, translate)
 
 def tf2pose(tf):
   scale, shear, angles, trans, persp = decompose_matrix(tf)
+  # TODO normalize:
+  # if angles contains at least two -+3.14159 values evaluate whether it can be set to 0, use is_same_transform()
   return ' '.join(str(rounded(i)) for i in itertools.chain(trans, angles))
 
 def pose_multiply(pose1, pose2):
@@ -43,7 +49,7 @@ def tf_multiply(tf1, tf2):
   return numpy.dot(tf1, tf2)
 
 def tf_strvector_multiply(tf, vector):
-  vector_tf = translation_matrix([float(i) for i in vector.split()])
+  vector_tf = translation_matrix(str2float_list(vector))
   result_tf = translation_from_matrix(tf_multiply(tf, vector_tf))
   return ' '.join(str(rounded(i)) for i in result_tf)
 
@@ -76,13 +82,9 @@ class Link(Entity):
     self.visual = {}
     self.joints = None
 
-    print(self.sdf_pose)
     pose_tag = link_tag.find('pose')
     if pose_tag != None:
-      print(pose_tag.text)
-      print(tf2pose(pose2tf(pose_tag.text))) # TODO error here
       self.sdf_pose = pose_multiply(self.sdf_pose, pose_tag.text.replace('\n', ' ').strip())
-      print(self.sdf_pose)
 
     inertial = link_tag.find('inertial')
     if inertial != None:
@@ -354,6 +356,14 @@ def main():
   parser.add_argument('sdf', help='SDF file to convert')
   parser.add_argument('urdf', help='Resulting URDF file to be written')
   args = parser.parse_args()
+
+  for test_pose in ['0 0 0 0 0 0', '1 0 0 0 0 0', '1 1 0 0 0 0', '-1 0 0 0 0 0', '0 0 0 1 0 0', '0 0 0 0 3.14159 0', '0 0 0 0 1.5709 1.5709', '0 0 0 1 1 0', '0 5 0 -1 0 0', '1 0 1 0 1 1', '0 0 0.5 0 -1.5709 0']:
+    test_res = tf2pose(pose2tf(test_pose))
+    test_res_float = str2float_list(test_res)
+    test_pose_float = str2float_list(test_pose)
+    if test_res_float != test_pose_float:
+      print('test_pose failed: input=%s output=%s' % (test_pose, test_res))
+      #sys.exit(1)
 
   model = Model()
   model.load_toplevel_sdf(args.sdf)
