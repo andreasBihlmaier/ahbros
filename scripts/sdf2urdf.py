@@ -26,37 +26,38 @@ def tf2pose(tf):
   return ' '.join(str(i) for i in itertools.chain(trans, angles))
 
 def pose_multiply(pose1, pose2):
-  print('pose_multiply(%s, %s)' % (pose1, pose2), end='')
+  #print('pose_multiply(%s, %s)' % (pose1, pose2), end='')
   pose1_tf = pose2tf(pose1)
   pose2_tf = pose2tf(pose2)
   pose_tf = numpy.dot(pose1_tf, pose2_tf)
   pose = tf2pose(pose_tf)
-  print(' -> %s' % (pose))
+  #print(' -> %s' % (pose))
   return pose
+
+def tf_multiply(tf1, tf2):
+  return numpy.dot(tf1, tf2)
 
 
 
 class Link:
-  def __init__(self, link_tag, prefix = '', pose = '0 0 0 0 0 0'):
+  def __init__(self, link_tag, prefix = ''):
     self.name = link_tag.attrib['name']
     if prefix:
       self.name = prefix + '::' + self.name
-    self.pose = pose
+    self.pose = None
     self.inertial = {}
     self.collision = {}
     self.visual = {}
 
     pose_tag = link_tag.find('pose')
     if pose_tag != None:
-      pose_rel = pose_tag.text.replace('\n', ' ').strip()
-      self.pose = pose_multiply(self.pose, pose_rel)
+      self.pose = pose_tag.text.replace('\n', ' ').strip()
 
     inertial = link_tag.find('inertial')
     if inertial != None:
       pose_tag = inertial.find('pose')
       if pose_tag != None:
-        pose_rel = pose_tag.text.replace('\n', ' ').strip()
-        self.inertial['pose'] = pose_multiply(self.pose, pose_rel)
+        self.inertial['pose'] = pose_tag.text.replace('\n', ' ').strip()
       mass_tag = inertial.find('mass')
       if mass_tag != None:
         self.inertial['mass'] = mass_tag.text
@@ -108,8 +109,9 @@ class Link:
     for elem in 'collision', 'visual':
       if getattr(self, elem):
         elem_tag = ET.SubElement(link_tag, elem, {'name': getattr(self, elem)['name']})
-        xyz, rpy = pose2origin(self.pose)
-        origin_tag = ET.SubElement(elem_tag, 'origin', {'rpy': rpy, 'xyz': xyz})
+        if 'pose' in getattr(self, elem):
+          xyz, rpy = pose2origin(self.pose)
+          origin_tag = ET.SubElement(elem_tag, 'origin', {'rpy': rpy, 'xyz': xyz})
         if 'geometry' in getattr(self, elem):
           geometry_tag = ET.SubElement(elem_tag, 'geometry')
           if 'mesh' in getattr(self, elem)['geometry']:
@@ -141,7 +143,7 @@ class Link:
 
 
 class Joint:
-  def __init__(self, joint_tag, prefix = '', pose = '0 0 0 0 0 0'):
+  def __init__(self, joint_tag, prefix = ''):
     self.name = joint_tag.attrib['name']
     self.joint_type = joint_tag.attrib['type']
     self.child = joint_tag.find('child').text
@@ -150,13 +152,12 @@ class Joint:
       self.name = prefix + '::' + self.name
       self.child = prefix + '::' + self.child
       self.parent = prefix + '::' + self.parent
-    self.pose = pose
+    self.pose = None
     self.axis = {}
 
     pose_tag = joint_tag.find('pose')
     if pose_tag != None:
-      pose_rel = pose_tag.text.replace('\n', ' ').strip()
-      self.pose = pose_multiply(self.pose, pose_rel)
+      self.pose = pose_tag.text.replace('\n', ' ').strip()
     axis_tag = joint_tag.find('axis')
     xyz_tag = axis_tag.find('xyz')
     if xyz_tag != None:
@@ -189,8 +190,9 @@ class Joint:
     parent_tag = ET.SubElement(joint_tag, 'parent', {'link': self.parent})
     child_tag = ET.SubElement(joint_tag, 'child', {'link': self.child})
 
-    xyz, rpy = pose2origin(self.pose)
-    origin_tag = ET.SubElement(joint_tag, 'origin', {'rpy': rpy, 'xyz': xyz})
+    if self.pose:
+      xyz, rpy = pose2origin(self.pose)
+      origin_tag = ET.SubElement(joint_tag, 'origin', {'rpy': rpy, 'xyz': xyz})
 
     if self.axis:
       axis_tag = ET.SubElement(joint_tag, 'axis')
@@ -225,7 +227,7 @@ class Model:
     self.name = model.attrib['name']
     self.load_sdf(sdf_filename)
 
-  def load_sdf(self, sdf_filename, model_prefix = '', pose = '0 0 0 0 0 0'):
+  def load_sdf(self, sdf_filename, model_prefix = ''):
     tree = ET.parse(sdf_filename)
     sdf = tree.getroot()
     model = sdf.findall('model')[0]
@@ -242,12 +244,32 @@ class Model:
         model_name = include.find('uri').text.replace('model://', '')
       pose_tag = include.find('pose')
       if pose_tag != None:
-        include_pose = pose_tag.text.replace('\n', ' ').strip()
-      else:
-        include_pose = '0 0 0 0 0 0'
+        pose_abs = pose_tag.text.replace('\n', ' ').strip()
+        for joint in self.joints:
+          if joint.child.startswith(model_name):
+            parent_pose_abs_tf = self.absolute_position(joint.parent)
+            pose_rel_tf = tf_multiply(inverse_matrix(parent_pose_abs_tf), pose2tf(pose_abs))
+            pose_rel = tf2pose(pose_rel_tf)
+            #print('Setting origin of %s to %s because of pose_abs=%s and parent_pose_abs=%s' % (joint, pose_rel, pose_abs, tf2pose(parent_pose_abs_tf)))
+            joint.pose = pose_rel
       if model_prefix:
         model_name = model_prefix + '::' + model_name
-      self.load_sdf(included_sdf_filename, model_name, include_pose)
+      self.load_sdf(included_sdf_filename, model_name)
+
+  def absolute_position(self, link):
+    curr_link = link
+    curr_pose_tf = identity_matrix()
+    had_parent = True
+    while had_parent:
+      had_parent = False;
+      #print('curr_link=%s curr_pose_tf=\n%s' % (curr_link, curr_pose_tf))
+      for joint in self.joints:
+        if joint.child == curr_link:
+          curr_pose_tf = tf_multiply(curr_pose_tf, pose2tf(joint.pose))
+          curr_link = joint.parent
+          had_parent = True
+          break
+    return curr_pose_tf
 
 
   def save_urdf(self, urdf_filename):
