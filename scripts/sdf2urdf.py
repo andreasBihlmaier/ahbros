@@ -146,8 +146,8 @@ class Joint:
   def __init__(self, joint_tag, prefix = ''):
     self.name = joint_tag.attrib['name']
     self.joint_type = joint_tag.attrib['type']
-    self.child = joint_tag.find('child').text
-    self.parent = joint_tag.find('parent').text
+    self.child = joint_tag.find('child').text.replace('::', '_')
+    self.parent = joint_tag.find('parent').text.replace('::', '_')
     if prefix:
       self.name = prefix + '_' + self.name
       self.child = prefix + '_' + self.child
