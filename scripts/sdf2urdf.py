@@ -1,11 +1,13 @@
 #!/usr/bin/env python
 
+from __future__ import print_function
+
+import itertools
 import os
 import argparse
 import xml.etree.ElementTree as ET
 import xml.dom.minidom
-#TODO move to ahbros
-#use transformations.py (or pykdl)
+from tf.transformations import *
 
 def prettyXML(uglyXML):
   return xml.dom.minidom.parseString(uglyXML).toprettyxml(indent='  ')
@@ -14,6 +16,25 @@ def pose2origin(pose):
   xyz = ' '.join(pose.split()[:3])
   rpy = ' '.join(pose.split()[3:])
   return xyz, rpy
+
+def pose2tf(pose):
+  pose_float = [float(i) for i in pose.split()]
+  return compose_matrix(None, None, pose_float[3:], pose_float[:3])
+
+def tf2pose(tf):
+  scale, shear, angles, trans, persp = decompose_matrix(tf)
+  return ' '.join(str(i) for i in itertools.chain(trans, angles))
+
+def pose_multiply(pose1, pose2):
+  print('pose_multiply(%s, %s)' % (pose1, pose2), end='')
+  pose1_tf = pose2tf(pose1)
+  pose2_tf = pose2tf(pose2)
+  pose_tf = numpy.dot(pose1_tf, pose2_tf)
+  pose = tf2pose(pose_tf)
+  print(' -> %s' % (pose))
+  return pose
+
+
 
 class Link:
   def __init__(self, link_tag, prefix = '', pose = '0 0 0 0 0 0'):
@@ -27,15 +48,15 @@ class Link:
 
     pose_tag = link_tag.find('pose')
     if pose_tag != None:
-      pose = pose_tag.text.replace('\n', ' ').strip()
-      # TODO self.pose =
+      pose_rel = pose_tag.text.replace('\n', ' ').strip()
+      self.pose = pose_multiply(self.pose, pose_rel)
 
     inertial = link_tag.find('inertial')
     if inertial != None:
       pose_tag = inertial.find('pose')
       if pose_tag != None:
-        pose = pose_tag.text.replace('\n', ' ').strip()
-        # TODO self.inertial['pose'] =
+        pose_rel = pose_tag.text.replace('\n', ' ').strip()
+        self.inertial['pose'] = pose_multiply(self.pose, pose_rel)
       mass_tag = inertial.find('mass')
       if mass_tag != None:
         self.inertial['mass'] = mass_tag.text
@@ -87,9 +108,8 @@ class Link:
     for elem in 'collision', 'visual':
       if getattr(self, elem):
         elem_tag = ET.SubElement(link_tag, elem, {'name': getattr(self, elem)['name']})
-        if 'pose' in getattr(self, elem):
-          xyz, rpy = pose2origin(getattr(self, elem)['pose'])
-          origin_tag = ET.SubElement(elem_tag, 'origin', {'rpy': rpy, 'xyz': xyz})
+        xyz, rpy = pose2origin(self.pose)
+        origin_tag = ET.SubElement(elem_tag, 'origin', {'rpy': rpy, 'xyz': xyz})
         if 'geometry' in getattr(self, elem):
           geometry_tag = ET.SubElement(elem_tag, 'geometry')
           if 'mesh' in getattr(self, elem)['geometry']:
@@ -135,8 +155,8 @@ class Joint:
 
     pose_tag = joint_tag.find('pose')
     if pose_tag != None:
-      pose = pose_tag.text.replace('\n', ' ').strip()
-      # TODO self.pose = 
+      pose_rel = pose_tag.text.replace('\n', ' ').strip()
+      self.pose = pose_multiply(self.pose, pose_rel)
     axis_tag = joint_tag.find('axis')
     xyz_tag = axis_tag.find('xyz')
     if xyz_tag != None:
@@ -210,9 +230,9 @@ class Model:
     sdf = tree.getroot()
     model = sdf.findall('model')[0]
     for link in model.iter('link'):
-      self.links.append(Link(link, model_prefix, pose))
+      self.links.append(Link(link, model_prefix))
     for joint in model.iter('joint'):
-      self.joints.append(Joint(joint, model_prefix, pose))
+      self.joints.append(Joint(joint, model_prefix))
     for include in model.iter('include'):
       included_sdf_filename = include.find('uri').text.replace('model://', self.models_path) + os.path.sep + 'model.sdf'
       name_tag = include.find('name')
@@ -223,10 +243,11 @@ class Model:
       pose_tag = include.find('pose')
       if pose_tag != None:
         include_pose = pose_tag.text.replace('\n', ' ').strip()
-      # TODO pose = pose "+" include_pose
+      else:
+        include_pose = '0 0 0 0 0 0'
       if model_prefix:
         model_name = model_prefix + '::' + model_name
-      self.load_sdf(included_sdf_filename, model_name, pose)
+      self.load_sdf(included_sdf_filename, model_name, include_pose)
 
 
   def save_urdf(self, urdf_filename):
