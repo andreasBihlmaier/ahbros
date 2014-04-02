@@ -44,20 +44,21 @@ class Link:
     self.name = link_tag.attrib['name']
     if prefix:
       self.name = prefix + '_' + self.name
-    self.pose = None
+    self.sdf_pose = '0 0 0 0 0 0'
+    self.urdf_pose = '0 0 0 0 0 0'
     self.inertial = {}
     self.collision = {}
     self.visual = {}
 
     pose_tag = link_tag.find('pose')
     if pose_tag != None:
-      self.pose = pose_tag.text.replace('\n', ' ').strip()
+      self.sdf_pose = pose_tag.text.replace('\n', ' ').strip()
 
     inertial = link_tag.find('inertial')
     if inertial != None:
       pose_tag = inertial.find('pose')
       if pose_tag != None:
-        self.inertial['pose'] = pose_tag.text.replace('\n', ' ').strip()
+        self.inertial['sdf_pose'] = pose_tag.text.replace('\n', ' ').strip()
       mass_tag = inertial.find('mass')
       if mass_tag != None:
         self.inertial['mass'] = mass_tag.text
@@ -74,9 +75,9 @@ class Link:
       elem_tag = link_tag.find(elem)
       if elem_tag != None:
         getattr(self, elem)['name'] = elem_tag.attrib['name']
-        pose = elem_tag.find('pose')
-        if pose != None:
-          getattr(self, elem)['pose'] = pose.text
+        pose_tag = elem_tag.find('pose')
+        if pose_tag != None:
+          getattr(self, elem)['sdf_pose'] = pose_tag.text
         geometry = elem_tag.find('geometry')
         if geometry != None:
           geometry_vals = {}
@@ -109,9 +110,8 @@ class Link:
     for elem in 'collision', 'visual':
       if getattr(self, elem):
         elem_tag = ET.SubElement(link_tag, elem, {'name': getattr(self, elem)['name']})
-        if 'pose' in getattr(self, elem):
-          xyz, rpy = pose2origin(self.pose)
-          origin_tag = ET.SubElement(elem_tag, 'origin', {'rpy': rpy, 'xyz': xyz})
+        xyz, rpy = pose2origin(self.urdf_pose)
+        origin_tag = ET.SubElement(elem_tag, 'origin', {'rpy': rpy, 'xyz': xyz})
         if 'geometry' in getattr(self, elem):
           geometry_tag = ET.SubElement(elem_tag, 'geometry')
           if 'mesh' in getattr(self, elem)['geometry']:
@@ -125,8 +125,8 @@ class Link:
     if self.inertial:
       inertial_tag = ET.SubElement(link_tag, 'inertial')
       mass_tag = ET.SubElement(inertial_tag, 'mass', {'value': self.inertial['mass']})
-      if 'pose' in self.inertial:
-        xyz, rpy = pose2origin(self.inertial['pose'])
+      if 'urdf_pose' in self.inertial:
+        xyz, rpy = pose2origin(self.inertial['urdf_pose'])
         origin_tag = ET.SubElement(inertial_tag, 'origin', {'rpy': rpy, 'xyz': xyz})
       inertia_tag = ET.SubElement(inertial_tag, 'inertia')
       for coord in 'ixx', 'ixy', 'ixz', 'iyy', 'iyz', 'izz':
@@ -137,7 +137,7 @@ class Link:
         inertia_tag.attrib[coord] = inertia.get(coord, '0')
 
   def __repr__(self):
-    return 'Link(name=%s, pose=%s, inertial=%s, collision=%s, visual=%s)' % (self.name, self.pose, str(self.inertial), str(self.collision), str(self.visual))
+    return 'Link(name=%s, sdf_pose=%s, urdf_pose=%s, inertial=%s, collision=%s, visual=%s)' % (self.name, self.sdf_pose, self.urdf_pose, str(self.inertial), str(self.collision), str(self.visual))
 
 
 
@@ -152,12 +152,13 @@ class Joint:
       self.name = prefix + '_' + self.name
       self.child = prefix + '_' + self.child
       self.parent = prefix + '_' + self.parent
-    self.pose = None
+    self.sdf_pose = '0 0 0 0 0 0'
+    self.urdf_pose = '0 0 0 0 0 0'
     self.axis = {}
 
     pose_tag = joint_tag.find('pose')
     if pose_tag != None:
-      self.pose = pose_tag.text.replace('\n', ' ').strip()
+      self.sdf_pose = pose_tag.text.replace('\n', ' ').strip()
     axis_tag = joint_tag.find('axis')
     xyz_tag = axis_tag.find('xyz')
     if xyz_tag != None:
@@ -190,9 +191,8 @@ class Joint:
     parent_tag = ET.SubElement(joint_tag, 'parent', {'link': self.parent})
     child_tag = ET.SubElement(joint_tag, 'child', {'link': self.child})
 
-    if self.pose:
-      xyz, rpy = pose2origin(self.pose)
-      origin_tag = ET.SubElement(joint_tag, 'origin', {'rpy': rpy, 'xyz': xyz})
+    xyz, rpy = pose2origin(self.urdf_pose)
+    origin_tag = ET.SubElement(joint_tag, 'origin', {'rpy': rpy, 'xyz': xyz})
 
     if self.axis:
       axis_tag = ET.SubElement(joint_tag, 'axis')
@@ -206,7 +206,7 @@ class Joint:
 
 
   def __repr__(self):
-    return 'Joint(name=%s, type=%s, child=%s, parent=%s, axis=%s, pose=%s)' % (self.name, self.joint_type, self.child, self.parent, str(self.axis), self.pose)
+    return 'Joint(name=%s, sdf_pose=%s, urdf_pose=%s, type=%s, child=%s, parent=%s, axis=%s)' % (self.name, self.sdf_pose, self.urdf_pose, self.joint_type, self.child, self.parent, str(self.axis))
 
 
 
@@ -218,7 +218,7 @@ class Model:
     self.models_path = os.path.expanduser('~/.gazebo/models/')
 
   def __repr__(self):
-    return 'Model(name=%s,\n links=%s,\n joints=%s\n)' % (self.name, str(self.links), str(self.joints))
+    return 'Model(name=%s,\n links:\n    %s,\n joints:\n    %s\n)' % (self.name, '\n    '.join(str(link) for link in self.links), '\n    '.join(str(joint) for joint in self.joints))
 
   def load_toplevel_sdf(self, sdf_filename):
     tree = ET.parse(sdf_filename)
@@ -244,14 +244,14 @@ class Model:
         model_name = include.find('uri').text.replace('model://', '')
       pose_tag = include.find('pose')
       if pose_tag != None:
-        pose_abs = pose_tag.text.replace('\n', ' ').strip()
+        sdf_pose_abs = pose_tag.text.replace('\n', ' ').strip()
         for joint in self.joints:
           if joint.child.startswith(model_name):
-            parent_pose_abs_tf = self.absolute_position(joint.parent)
-            pose_rel_tf = tf_multiply(inverse_matrix(parent_pose_abs_tf), pose2tf(pose_abs))
-            pose_rel = tf2pose(pose_rel_tf)
-            #print('Setting origin of %s to %s because of pose_abs=%s and parent_pose_abs=%s' % (joint, pose_rel, pose_abs, tf2pose(parent_pose_abs_tf)))
-            joint.pose = pose_rel
+            sdf_parent_pose_abs_tf = self.absolute_position(joint.parent)
+            urdf_pose_rel_tf = tf_multiply(inverse_matrix(sdf_parent_pose_abs_tf), pose2tf(sdf_pose_abs))
+            urdf_pose_rel = tf2pose(urdf_pose_rel_tf)
+            print('Moving origin of %s by %s because of sdf_pose_abs=%s and sdf_parent_pose_abs=%s' % (joint, urdf_pose_rel, sdf_pose_abs, tf2pose(sdf_parent_pose_abs_tf)))
+            joint.moveUrdf(urdf_pose_rel)
       if model_prefix:
         model_name = model_prefix + '_' + model_name
       self.load_sdf(included_sdf_filename, model_name)
