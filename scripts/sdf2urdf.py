@@ -13,6 +13,16 @@ from tf.transformations import *
 def rounded(val):
   return int(round(val,6) * 1e5) / 1.0e5
 
+def round_all(lst):
+  return [rounded(item) for item in lst]
+
+def is_same_transform_rough(matrix0, matrix1):
+  matrix0 = numpy.array(matrix0, dtype=numpy.float64, copy=True)
+  matrix0 /= matrix0[3, 3]
+  matrix1 = numpy.array(matrix1, dtype=numpy.float64, copy=True)
+  matrix1 /= matrix1[3, 3]
+  return numpy.allclose(matrix0, matrix1, 1e-04, 1e-04)
+
 def str2float_list(s):
   return [float(i) for i in s.split()]
 
@@ -28,12 +38,28 @@ def pose2tf(pose):
   pose_float = str2float_list(pose)
   translate = pose_float[:3]
   angles = pose_float[3:]
-  return compose_matrix(None, None, angles, translate)
+  tf = compose_matrix(None, None, angles, translate)
+  return tf
 
 def tf2pose(tf):
   scale, shear, angles, trans, persp = decompose_matrix(tf)
-  # TODO normalize:
-  # if angles contains at least two -+3.14159 values evaluate whether it can be set to 0, use is_same_transform()
+
+  # "normalize" (for "common" angles) to euler angles as close to zero as possible and prefer positive to negative values
+  angles = round_all(angles)
+  orig_tf = compose_matrix(None, None, angles)
+  for i in numpy.linspace(1, -1, 5):
+    for j in numpy.linspace(1, -1, 5):
+      for k in numpy.linspace(1, -1, 5):
+          delta = [val * 3.14159 for val in i, j, k]
+          angles_mod = round_all(sum(x) for x in zip(angles, delta))
+          if sum(abs(v) for v in angles) <= sum(abs(vm) for vm in angles_mod) \
+             or any(rounded(abs(vm)) > 3.14159 for vm in angles_mod):
+            continue
+          mod_tf = compose_matrix(None, None, angles_mod)
+          if is_same_transform_rough(orig_tf, mod_tf):
+            #print('Using angles %s instead of %s' % (angles_mod, angles))
+            angles = angles_mod
+
   return ' '.join(str(rounded(i)) for i in itertools.chain(trans, angles))
 
 def pose_multiply(pose1, pose2):
@@ -357,11 +383,11 @@ def main():
   parser.add_argument('urdf', help='Resulting URDF file to be written')
   args = parser.parse_args()
 
-  for test_pose in ['0 0 0 0 0 0', '1 0 0 0 0 0', '1 1 0 0 0 0', '-1 0 0 0 0 0', '0 0 0 1 0 0', '0 0 0 0 3.14159 0', '0 0 0 0 1.5709 1.5709', '0 0 0 1 1 0', '0 5 0 -1 0 0', '1 0 1 0 1 1', '0 0 0.5 0 -1.5709 0']:
+  for test_pose in ['0 0 0 0 0 0', '1 0 0 0 0 0', '1 1 0 0 0 0', '-1 0 0 0 0 0', '0 0 0 1 0 0', '0 0 0 0 3.14159 0', '0 0 0 0 1.5708 1.5708', '0 0 0 1 1 0', '0 5 0 -1 0 0', '1 0 1 0 1 1', '0 0 0.5 0 -1.5708 0']:
     test_res = tf2pose(pose2tf(test_pose))
     test_res_float = str2float_list(test_res)
     test_pose_float = str2float_list(test_pose)
-    if test_res_float != test_pose_float:
+    if not numpy.allclose(test_res_float, test_pose_float):
       print('test_pose failed: input=%s output=%s' % (test_pose, test_res))
       #sys.exit(1)
 
