@@ -92,8 +92,8 @@ class Entity(object):
     self.sdf_pose = '0 0 0 0 0 0'
     self.urdf_pose = '0 0 0 0 0 0'
 
-  def moveUrdf(self, tf):
-    self.urdf_pose = pose_multiply(self.urdf_pose, tf2pose(tf))
+  def set_urdf_pose(self, tf):
+    self.urdf_pose = tf2pose(tf)
 
 
 class Link(Entity):
@@ -261,7 +261,7 @@ class Joint(Entity):
   def __repr__(self):
     return 'Joint(name=%s, sdf_pose=%s, urdf_pose=%s, type=%s, child=%s, parent=%s, axis=%s)' % (self.name, self.sdf_pose, self.urdf_pose, self.joint_type, self.child, self.parent, str(self.axis))
 
-  def rotateAxisUrdf(self, tf):
+  def rotateUrdfAxis(self, tf):
     rotation_tf = extract_rotation(tf)
     self.axis['xyz'] = tf_strvector_multiply(rotation_tf, self.axis['xyz'])
 
@@ -351,12 +351,14 @@ class Model:
 
   def set_urdf_pose(self, link, joint_abs_tf):
     print('link=%s joint_abs_tf=%s' % (link.name, tf2pose(joint_abs_tf)))
-    link.moveUrdf(abs2rel(pose2tf(link.sdf_pose), joint_abs_tf))
+    link.set_urdf_pose(abs2rel(pose2tf(link.sdf_pose), joint_abs_tf))
     for joint in link.joints:
       joint_child = self.get_link(joint.child)
       joint_rel_tf = abs2rel(joint_abs_tf, pose2tf(joint_child.sdf_pose))
       print('joint=%s joint_child=%s joint_child.sdf_pose=%s -> joint_rel_tf=%s' % (joint.name, joint_child.name, joint_child.sdf_pose, tf2pose(joint_rel_tf)))
-      joint.moveUrdf(joint_rel_tf)
+      joint.set_urdf_pose(joint_rel_tf)
+      # Sdf 1.4 axis is specified in parent frame, but urdf in joint=child frame
+      joint.rotateUrdfAxis(TODO)
       self.set_urdf_pose(joint_child, tf_multiply(joint_abs_tf, joint_rel_tf))
 
 
