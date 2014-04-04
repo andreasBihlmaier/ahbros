@@ -262,8 +262,11 @@ class Joint(Entity):
     return 'Joint(name=%s, sdf_pose=%s, urdf_pose=%s, type=%s, child=%s, parent=%s, axis=%s)' % (self.name, self.sdf_pose, self.urdf_pose, self.joint_type, self.child, self.parent, str(self.axis))
 
   def rotateUrdfAxis(self, tf):
+    print('before=%s' % self.axis['xyz'])
+    print('tf:\n%s' % tf)
     rotation_tf = extract_rotation(tf)
     self.axis['xyz'] = tf_strvector_multiply(rotation_tf, self.axis['xyz'])
+    print('after=%s' % self.axis['xyz'])
 
 
 
@@ -281,6 +284,7 @@ class Model:
   def load_toplevel_sdf(self, sdf_filename):
     tree = ET.parse(sdf_filename)
     sdf = tree.getroot()
+    self.sdf_version = float(sdf.attrib['version'])
     model = sdf.findall('model')[0]
     self.name = model.attrib['name']
     self.load_sdf(sdf_filename)
@@ -304,6 +308,7 @@ class Model:
       else:
         model_name = include.find('uri').text.replace('model://', '')
       pose_tag = include.find('pose')
+      # TODO modify joint axis?
       if pose_tag != None:
         include_pose = pose_multiply(pose, pose_tag.text.replace('\n', ' ').strip())
       else:
@@ -357,9 +362,14 @@ class Model:
       joint_rel_tf = abs2rel(joint_abs_tf, pose2tf(joint_child.sdf_pose))
       print('joint=%s joint_child=%s joint_child.sdf_pose=%s -> joint_rel_tf=%s' % (joint.name, joint_child.name, joint_child.sdf_pose, tf2pose(joint_rel_tf)))
       joint.set_urdf_pose(joint_rel_tf)
-      # Sdf 1.4 axis is specified in parent frame, but urdf in joint=child frame
-      joint.rotateUrdfAxis(TODO)
-      self.set_urdf_pose(joint_child, tf_multiply(joint_abs_tf, joint_rel_tf))
+      # SDF 1.4 axis is specified in model frame, but urdf in joint=child frame
+      new_abs_child_tf = tf_multiply(joint_abs_tf, joint_rel_tf)
+      if self.sdf_version < 1.5:
+        joint.rotateUrdfAxis(new_abs_child_tf)
+      else:
+        print('Untested SDF version!')
+        sys.exit(1)
+      self.set_urdf_pose(joint_child, new_abs_child_tf)
 
 
   def find_joints(self, link):
