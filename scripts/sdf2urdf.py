@@ -167,7 +167,7 @@ class Link(Entity):
     link_tag = ET.SubElement(parent_tag, 'link', {'name': self.name})
     for elem in 'collision', 'visual':
       if getattr(self, elem):
-        elem_tag = ET.SubElement(link_tag, elem, {'name': getattr(self, elem)['name']})
+        elem_tag = ET.SubElement(link_tag, elem, {'name': self.name + '_' + getattr(self, elem)['name']})
         if 'geometry' in getattr(self, elem):
           geometry_tag = ET.SubElement(elem_tag, 'geometry')
           if 'mesh' in getattr(self, elem)['geometry']:
@@ -193,7 +193,7 @@ class Link(Entity):
         inertia_tag.attrib[coord] = inertia.get(coord, '0')
 
   def __repr__(self):
-    return 'Link(name=%s, sdf_pose=%s, urdf_pose=%s, inertial=%s, collision=%s, visual=%s, joints=%s)' % (self.name, self.sdf_pose, self.urdf_pose, self.inertial, self.collision, self.visual, [joint.name for joint in self.joints])
+    return 'Link(name=%s, sdf_pose=%s, urdf_pose=%s, inertial=%s, collision=%s, visual=%s, joints=%s)' % (self.name, self.sdf_pose, self.urdf_pose, self.inertial, self.collision, self.visual, [joint.name for joint in self.joints] if self.joints else None)
 
 
 
@@ -262,11 +262,8 @@ class Joint(Entity):
     return 'Joint(name=%s, sdf_pose=%s, urdf_pose=%s, type=%s, child=%s, parent=%s, axis=%s)' % (self.name, self.sdf_pose, self.urdf_pose, self.joint_type, self.child, self.parent, str(self.axis))
 
   def rotateUrdfAxis(self, tf):
-    print('before=%s' % self.axis['xyz'])
-    print('tf:\n%s' % tf)
     rotation_tf = extract_rotation(tf)
     self.axis['xyz'] = tf_strvector_multiply(rotation_tf, self.axis['xyz'])
-    print('after=%s' % self.axis['xyz'])
 
 
 
