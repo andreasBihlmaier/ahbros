@@ -5,6 +5,8 @@ import rospy
 import sys
 import argparse
 import tf
+import numpy
+from tf.transformations import *
 
 
 
@@ -17,13 +19,13 @@ def main(args):
 
   rospy.init_node('get_relative_tf', anonymous=True)
   tf_listener = tf.TransformListener()
-  rospy.sleep(rospy.Duration(0, 500 * 1000))
 
-  try:
-    tf_listener.waitForTransform(to_tf, from_tf, rospy.Time(), rospy.Duration(4.0))
-
-  position, quaternion = tf_listener.lookupTransform(to_tf, from_tf, rospy.Time.now())
-  print position, quaternion
+  tf_listener.waitForTransform(to_tf, from_tf, rospy.Time(), rospy.Duration(4.0))
+  position, quaternion = tf_listener.lookupTransform(to_tf, from_tf, rospy.Time())
+  print('Translation: %s' % str(position))
+  print('Quaternion: %s' % str(quaternion))
+  matrix = numpy.dot(translation_matrix(position), quaternion_matrix(quaternion))
+  print('Matrix:\n%s' % matrix)
 
 
 if __name__ == '__main__':
