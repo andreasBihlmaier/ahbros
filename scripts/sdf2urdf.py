@@ -199,7 +199,7 @@ class Link(Entity):
 
 
 class Joint(Entity):
-  def __init__(self, joint_tag, prefix = ''):
+  def __init__(self, joint_tag, prefix = '', pose = '0 0 0 0 0 0'):
     super(Joint, self).__init__()
     self.name = joint_tag.attrib['name']
     self.joint_type = joint_tag.attrib['type']
@@ -209,13 +209,13 @@ class Joint(Entity):
       self.name = prefix + '_' + self.name
       self.child = prefix + '_' + self.child
       self.parent = prefix + '_' + self.parent
-    self.sdf_pose = '0 0 0 0 0 0'
+    self.sdf_pose = pose
     self.urdf_pose = '0 0 0 0 0 0'
     self.axis = {}
 
     pose_tag = joint_tag.find('pose')
     if pose_tag != None:
-      self.sdf_pose = pose_tag.text.replace('\n', ' ').strip()
+      self.sdf_pose = pose_multiply(self.sdf_pose, pose_tag.text.replace('\n', ' ').strip())
     axis_tag = joint_tag.find('axis')
     xyz_tag = axis_tag.find('xyz')
     self.axis['xyz'] = xyz_tag.text
@@ -295,8 +295,15 @@ class Model:
     model = sdf.findall('model')[0]
     for link in model.iter('link'):
       self.links.append(Link(link, model_prefix, pose))
+    # SDF 1.4 axis is specified in model frame, but urdf in joint=child frame
+    if self.sdf_version < 1.5:
+      joint_pose = pose
+    else:
+      joint_pose = '0 0 0 0 0 0'
+      print('Untested SDF version!')
+      sys.exit(1)
     for joint in model.iter('joint'):
-      self.joints.append(Joint(joint, model_prefix))
+      self.joints.append(Joint(joint, model_prefix, joint_pose))
     for include in model.iter('include'):
       included_sdf_filename = include.find('uri').text.replace('model://', self.models_path) + os.path.sep + 'model.sdf'
       name_tag = include.find('name')
@@ -355,9 +362,9 @@ class Model:
     print('link=%s joint_abs_tf=%s' % (link.name, tf2pose(joint_abs_tf)))
     link.set_urdf_pose(abs2rel(pose2tf(link.sdf_pose), joint_abs_tf))
     for joint in link.joints:
-      joint_child = self.get_link(joint.child)
-      joint_rel_tf = abs2rel(joint_abs_tf, pose2tf(joint_child.sdf_pose))
-      print('joint=%s joint_child=%s joint_child.sdf_pose=%s -> joint_rel_tf=%s' % (joint.name, joint_child.name, joint_child.sdf_pose, tf2pose(joint_rel_tf)))
+      joint_child_link = self.get_link(joint.child)
+      joint_rel_tf = abs2rel(joint_abs_tf, pose2tf(joint_child_link.sdf_pose))
+      print('joint=%s joint_child_link=%s joint_child_link.sdf_pose=%s -> joint_rel_tf=%s' % (joint.name, joint_child_link.name, joint_child_link.sdf_pose, tf2pose(joint_rel_tf)))
       joint.set_urdf_pose(joint_rel_tf)
       # SDF 1.4 axis is specified in model frame, but urdf in joint=child frame
       new_abs_child_tf = tf_multiply(joint_abs_tf, joint_rel_tf)
@@ -366,7 +373,7 @@ class Model:
       else:
         print('Untested SDF version!')
         sys.exit(1)
-      self.set_urdf_pose(joint_child, new_abs_child_tf)
+      self.set_urdf_pose(joint_child_link, new_abs_child_tf)
 
 
   def find_joints(self, link):
