@@ -199,7 +199,7 @@ class Link(Entity):
 
 
 class Joint(Entity):
-  def __init__(self, joint_tag, prefix = ''):
+  def __init__(self, joint_tag, prefix = '', pose = '0 0 0 0 0 0'):
     super(Joint, self).__init__()
     self.name = joint_tag.attrib['name']
     self.joint_type = joint_tag.attrib['type']
@@ -209,16 +209,16 @@ class Joint(Entity):
       self.name = prefix + '_' + self.name
       self.child = prefix + '_' + self.child
       self.parent = prefix + '_' + self.parent
-    self.sdf_pose = '0 0 0 0 0 0'
+    self.sdf_pose = pose
     self.urdf_pose = '0 0 0 0 0 0'
     self.axis = {}
 
     pose_tag = joint_tag.find('pose')
     if pose_tag != None:
-      self.sdf_pose = pose_tag.text.replace('\n', ' ').strip()
+      self.sdf_pose = pose_multiply(self.sdf_pose, pose_tag.text.replace('\n', ' ').strip())
     axis_tag = joint_tag.find('axis')
     xyz_tag = axis_tag.find('xyz')
-    self.axis['xyz'] = xyz_tag.text
+    self.axis['xyz'] = tf2pose(tf_multiply(extract_rotation(pose2tf(self.sdf_pose)), pose2tf(xyz_tag.text + ' 0 0 0')))
     limit_tag = axis_tag.find('limit')
     if limit_tag != None:
       limit_vals = {}
@@ -296,7 +296,7 @@ class Model:
     for link in model.iter('link'):
       self.links.append(Link(link, model_prefix, pose))
     for joint in model.iter('joint'):
-      self.joints.append(Joint(joint, model_prefix))
+      self.joints.append(Joint(joint, model_prefix, pose))
     for include in model.iter('include'):
       included_sdf_filename = include.find('uri').text.replace('model://', self.models_path) + os.path.sep + 'model.sdf'
       name_tag = include.find('name')
