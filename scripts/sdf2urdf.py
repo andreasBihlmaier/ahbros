@@ -305,7 +305,6 @@ class Model:
       else:
         model_name = include.find('uri').text.replace('model://', '')
       pose_tag = include.find('pose')
-      # TODO modify joint axis?
       if pose_tag != None:
         include_pose = pose_multiply(pose, pose_tag.text.replace('\n', ' ').strip())
       else:
