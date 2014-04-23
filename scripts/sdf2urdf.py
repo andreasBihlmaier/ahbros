@@ -148,7 +148,7 @@ class Link(Entity):
         getattr(self, elem)['name'] = elem_tag.attrib['name']
         pose_tag = elem_tag.find('pose')
         if pose_tag != None:
-          getattr(self, elem)['sdf_pose'] = pose_tag.text
+          getattr(self, elem)['sdf_pose'] = pose_tag.text.replace('\n', ' ').strip()
         geometry = elem_tag.find('geometry')
         if geometry != None:
           geometry_vals = {}
@@ -181,6 +181,9 @@ class Link(Entity):
     for elem in 'collision', 'visual':
       if getattr(self, elem):
         elem_tag = ET.SubElement(link_tag, elem, {'name': self.name + '_' + getattr(self, elem)['name']})
+        if 'sdf_pose' in getattr(self, elem):
+          xyz, rpy = pose2origin(getattr(self, elem)['sdf_pose'])
+          origin_tag = ET.SubElement(elem_tag, 'origin', {'rpy': rpy, 'xyz': xyz})
         if 'geometry' in getattr(self, elem):
           geometry_tag = ET.SubElement(elem_tag, 'geometry')
           if 'mesh' in getattr(self, elem)['geometry']:
