@@ -86,6 +86,15 @@ def extract_rotation(tf):
   scale, shear, angles, trans, persp = decompose_matrix(tf)
   return compose_matrix(None, None, angles)
 
+def find_file_in_catkin_ws(filename):
+  catkin_ws_path = os.path.expanduser('~') + '/catkin_ws/src/'
+  for root, dirs, files in os.walk(catkin_ws_path, followlinks=True):
+    for currfile in files:
+      filename_path = os.path.join(root, currfile)
+      if filename in filename_path:
+        return filename_path.replace(catkin_ws_path, '')
+
+
 
 class Entity(object):
   def __init__(self):
@@ -171,7 +180,14 @@ class Link(Entity):
         if 'geometry' in getattr(self, elem):
           geometry_tag = ET.SubElement(elem_tag, 'geometry')
           if 'mesh' in getattr(self, elem)['geometry']:
-            mesh_tag = ET.SubElement(geometry_tag, 'mesh', {'filename':  'package://PATHTOMESHES/' + '/'.join(getattr(self, elem)['geometry']['mesh']['uri'].split('/')[3:])})
+            splitters = getattr(self, elem)['geometry']['mesh']['uri'].split('/')
+            mesh_file = '/'.join(splitters[3:])
+            mesh_found = find_file_in_catkin_ws(mesh_file)
+            if mesh_found:
+              mesh_path = 'package://' + mesh_found
+            else:
+              mesh_path = 'package://PATHTOMESHES/' + mesh_file
+            mesh_tag = ET.SubElement(geometry_tag, 'mesh', {'filename': mesh_path})
           if 'sphere' in getattr(self, elem)['geometry']:
             sphere_tag = ET.SubElement(geometry_tag, 'sphere', {'radius': getattr(self, elem)['geometry']['sphere']['radius']})
           if 'cylinder' in getattr(self, elem)['geometry']:
