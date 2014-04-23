@@ -88,11 +88,15 @@ def extract_rotation(tf):
 
 def find_file_in_catkin_ws(filename):
   catkin_ws_path = os.path.expanduser('~') + '/catkin_ws/src/'
+  result = ''
   for root, dirs, files in os.walk(catkin_ws_path, followlinks=True):
     for currfile in files:
       filename_path = os.path.join(root, currfile)
       if filename in filename_path:
-        return filename_path.replace(catkin_ws_path, '')
+        if result:
+          result += ' OR '
+        result += filename_path.replace(catkin_ws_path, '')
+  return result
 
 
 
@@ -398,6 +402,18 @@ class Model:
     pretty_urdf_string = prettyXML(ET.tostring(urdf))
     urdf_file.write(pretty_urdf_string)
 
+  def plot(self, plot_filename):
+    import pygraphviz as pgv
+    graph = pgv.AGraph()
+
+    for link in self.links:
+      graph.add_node(link.name, label=link.name + '\\nsdf: ' + link.sdf_pose)
+
+    for joint in self.joints:
+      graph.add_edge(joint.parent, joint.child, label=joint.name + '\\nurdf: ' + joint.urdf_pose)
+
+    graph.draw(plot_filename, prog='dot')
+
 
 
 
@@ -418,6 +434,7 @@ def main():
   model = Model()
   model.load_toplevel_sdf(args.sdf)
   print('Parsed SDF model:\n' + str(model))
+  model.plot('/tmp/sdf2urdf.png')
   model.save_urdf(args.urdf)
 
 
