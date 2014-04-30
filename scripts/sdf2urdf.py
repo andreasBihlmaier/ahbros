@@ -437,7 +437,7 @@ def main():
   model = Model()
   model.load_toplevel_sdf(args.sdf)
   print('Parsed SDF model:\n' + str(model))
-  model.plot('/tmp/sdf2urdf.png')
+  #model.plot('/tmp/sdf2urdf.png')
   model.save_urdf(args.urdf)
 
 
