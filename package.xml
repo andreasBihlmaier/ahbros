@@ -2,7 +2,7 @@
 <package>
   <name>ahbros</name>
   <version>0.0.0</version>
-  <description>ahb utilities: ros dependend fuctionality</description>
+  <description>ahb utilities: ros dependent functionality</description>
   <maintainer email="andreas.bihlmaier@gmx.de">Andreas Bihlmaier</maintainer>
   <license>MIT</license>
 
@@ -31,6 +31,10 @@
   <!-- Use test_depend for packages you need only for testing: -->
   <!--   <test_depend>gtest</test_depend> -->
   <buildtool_depend>catkin</buildtool_depend>
+  <build_depend>roscpp</build_depend>
+  <build_depend>ahbstring</build_depend>
+  <run_depend>ahbstring</run_depend>
+  <run_depend>roscpp</run_depend>
 
 
   <!-- The export tag contains other, unspecified, tags -->
