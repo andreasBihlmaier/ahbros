@@ -62,6 +62,10 @@ def tf2pose(tf):
 
   return ' '.join(str(rounded(i)) for i in itertools.chain(trans, angles))
 
+def tf2rotation(tf):
+  pose = tf2pose(tf)
+  return ' '.join(pose.split()[:3])
+
 def pose_multiply(pose1, pose2):
   #print('pose_multiply(%s, %s)' % (pose1, pose2), end='')
   pose1_tf = pose2tf(pose1)
@@ -241,7 +245,7 @@ class Joint(Entity):
       self.sdf_pose = pose_multiply(self.sdf_pose, pose_tag.text.replace('\n', ' ').strip())
     axis_tag = joint_tag.find('axis')
     xyz_tag = axis_tag.find('xyz')
-    self.axis['xyz'] = tf2pose(tf_multiply(extract_rotation(pose2tf(self.sdf_pose)), pose2tf(xyz_tag.text + ' 0 0 0')))
+    self.axis['xyz'] = tf2rotation(tf_multiply(extract_rotation(pose2tf(self.sdf_pose)), pose2tf(xyz_tag.text + ' 0 0 0')))
     limit_tag = axis_tag.find('limit')
     if limit_tag != None:
       limit_vals = {}
@@ -285,7 +289,7 @@ class Joint(Entity):
     return 'Joint(name=%s, sdf_pose=%s, urdf_pose=%s, type=%s, child=%s, parent=%s, axis=%s)' % (self.name, self.sdf_pose, self.urdf_pose, self.joint_type, self.child, self.parent, str(self.axis))
 
   def rotateUrdfAxis(self, tf):
-    rotation_tf = extract_rotation(tf)
+    rotation_tf = extract_rotation(inverse_matrix(tf))
     self.axis['xyz'] = tf_strvector_multiply(rotation_tf, self.axis['xyz'])
 
 
