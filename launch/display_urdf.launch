@@ -7,7 +7,7 @@
 	<param name="robot_description" command="$(find xacro)/xacro.py $(arg model)" />
 	<param name="use_gui" value="$(arg use_gui)" />
 
-	<node name="static_transform_publisher" pkg="tf2_ros" type="static_transform_publisher" args="0 0 0  0 0 0 1 $(arg model_baselink) world" />
+	<node name="static_transform_publisher" pkg="tf2_ros" type="static_transform_publisher" args="0 0 0  0 0 0 1 world $(arg model_baselink)" />
 	<node name="joint_state_publisher" pkg="joint_state_publisher" type="joint_state_publisher" />
 	<node name="robot_state_publisher" pkg="robot_state_publisher" type="state_publisher" />
 
