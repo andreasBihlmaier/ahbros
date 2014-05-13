@@ -20,8 +20,8 @@ def main(args):
   rospy.init_node('get_relative_tf', anonymous=True)
   tf_listener = tf.TransformListener()
 
-  tf_listener.waitForTransform(to_tf, from_tf, rospy.Time(), rospy.Duration(4.0))
-  position, quaternion = tf_listener.lookupTransform(to_tf, from_tf, rospy.Time())
+  tf_listener.waitForTransform(from_tf, to_tf, rospy.Time(), rospy.Duration(4.0))
+  position, quaternion = tf_listener.lookupTransform(from_tf, to_tf, rospy.Time())
   print('Translation: %s' % str(position))
   print('Quaternion: %s' % str(quaternion))
   matrix = numpy.dot(translation_matrix(position), quaternion_matrix(quaternion))

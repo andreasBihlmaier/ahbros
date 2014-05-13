@@ -23,12 +23,13 @@ def main(args):
   rospy.init_node('tf_alias_node', anonymous=True)
   tf_listener = tf.TransformListener()
   tf_broadcaster = tf.TransformBroadcaster()
-  tf_listener.waitForTransform(source_to_tf, source_from_tf, rospy.Time(), rospy.Duration(4.0))
+  tf_listener.waitForTransform(source_from_tf, source_to_tf, rospy.Time(), rospy.Duration(4.0))
 
   rospy.loginfo('Spinning')
   r = rospy.Rate(args.freq)
   while not rospy.is_shutdown():
-    position, quaternion = tf_listener.lookupTransform(source_to_tf, source_from_tf, rospy.Time())
+    position, quaternion = tf_listener.lookupTransform(source_from_tf, source_to_tf, rospy.Time())
+    #print('Publishing %s -> %s (= %s -> %s): position=%s quaternion=%s' % (target_from_tf, target_to_tf, source_from_tf, source_to_tf, position, quaternion))
     tf_broadcaster.sendTransform(position, quaternion, rospy.Time(), target_to_tf, target_from_tf)
     r.sleep()
 
