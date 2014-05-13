@@ -30,7 +30,7 @@ def main(args):
   while not rospy.is_shutdown():
     position, quaternion = tf_listener.lookupTransform(source_from_tf, source_to_tf, rospy.Time())
     #print('Publishing %s -> %s (= %s -> %s): position=%s quaternion=%s' % (target_from_tf, target_to_tf, source_from_tf, source_to_tf, position, quaternion))
-    tf_broadcaster.sendTransform(position, quaternion, rospy.Time(), target_to_tf, target_from_tf)
+    tf_broadcaster.sendTransform(position, quaternion, rospy.get_rostime(), target_to_tf, target_from_tf)
     r.sleep()
 
 
