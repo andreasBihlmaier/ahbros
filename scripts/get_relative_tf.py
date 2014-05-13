@@ -14,7 +14,7 @@ def main(args):
   parser = argparse.ArgumentParser()
   parser.add_argument('from_tf', help='Base Frame')
   parser.add_argument('to_tf', help='Target Frame')
-  args = parser.parse_args()
+  args = parser.parse_args(rospy.myargv()[1:])
   from_tf, to_tf = args.from_tf, args.to_tf
 
   rospy.init_node('get_relative_tf', anonymous=True)
