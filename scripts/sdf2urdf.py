@@ -182,6 +182,7 @@ class Link(Entity):
 
   def toUrdfSubElement(self, parent_tag):
     link_tag = ET.SubElement(parent_tag, 'link', {'name': self.name})
+    # TODO if joint has sdf_pose set
     for elem in 'collision', 'visual':
       if getattr(self, elem):
         elem_tag = ET.SubElement(link_tag, elem, {'name': self.name + '_' + getattr(self, elem)['name']})
@@ -377,16 +378,18 @@ class Model:
     for child in [joint.child for joint in link.joints]:
       self.build_model_tree(self.get_link(child))
 
-  def set_urdf_pose(self, link, joint_abs_tf):
-    print('link=%s joint_abs_tf=%s' % (link.name, tf2pose(joint_abs_tf)))
-    link.set_urdf_pose(abs2rel(pose2tf(link.sdf_pose), joint_abs_tf))
+  def set_urdf_pose(self, link, link_abs_tf):
+    print('link=%s link_abs_tf=%s' % (link.name, tf2pose(link_abs_tf)))
+    link.set_urdf_pose(abs2rel(pose2tf(link.sdf_pose), link_abs_tf))
     for joint in link.joints:
       joint_child = self.get_link(joint.child)
-      joint_rel_tf = abs2rel(joint_abs_tf, pose2tf(joint_child.sdf_pose))
-      print('joint=%s joint_child=%s joint_child.sdf_pose=%s -> joint_rel_tf=%s' % (joint.name, joint_child.name, joint_child.sdf_pose, tf2pose(joint_rel_tf)))
+      joint_offset_tf = pose2tf(joint.sdf_pose)
+      #TODO joint_abs_tf = joint_child should stay in same place, just joint origin should be moved
+      joint_rel_tf = abs2rel(link_abs_tf, pose2tf(joint_child.sdf_pose))
+      print('joint=%s joint.sdf_pose=%s joint_child=%s joint_child.sdf_pose=%s -> joint_rel_tf=%s' % (joint.name, joint.sdf_pose, joint_child.name, joint_child.sdf_pose, tf2pose(joint_rel_tf)))
       joint.set_urdf_pose(joint_rel_tf)
       # SDF 1.4 axis is specified in model frame, but urdf in joint=child frame
-      new_abs_child_tf = tf_multiply(joint_abs_tf, joint_rel_tf)
+      new_abs_child_tf = tf_multiply(link_abs_tf, joint_rel_tf)
       if self.sdf_version < 1.5:
         joint.rotateUrdfAxis(new_abs_child_tf)
       else:
