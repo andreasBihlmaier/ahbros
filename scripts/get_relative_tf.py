@@ -17,6 +17,8 @@ def main(args):
   args = parser.parse_args(rospy.myargv()[1:])
   from_tf, to_tf = args.from_tf, args.to_tf
 
+  print('Consider using: rosrun tf2 tf2_echo %s %s' % (from_tf, to_tf))
+
   rospy.init_node('get_relative_tf', anonymous=True)
   tf_listener = tf.TransformListener()
 
