@@ -17,7 +17,7 @@ def on_image(ros_img):
   except CvBridgeError, e:
     print e
 
-  cv2.imwrite('/tmp/test.jpg', cv2_img)
+  cv2.imwrite('/tmp/test.png', cv2_img)
   global all_captured
   all_captured = True
 
@@ -28,7 +28,7 @@ def main(args):
 
   rospy.loginfo('Spinning')
   global all_captured
-  while not all_captured:
+  while not rospy.is_shutdown() and not all_captured:
     rospy.sleep(rospy.Duration(0, 10 * 1000))
 
 if __name__ == '__main__':
