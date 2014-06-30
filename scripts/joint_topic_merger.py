@@ -4,6 +4,7 @@ import roslib
 import rospy
 import sys
 import argparse
+from urdf_parser_py.urdf import URDF
 
 from sensor_msgs.msg import JointState
 
@@ -12,13 +13,15 @@ from sensor_msgs.msg import JointState
 # merge them on single topic
 # rename single joints according to one urdf model (i.e. ur5, lwr2 -> or_table_...ur5...lwr2)
 
-class Robot(object):
+class RobotJoints(object):
   def __init__(self, id):
     self.id = id
-    self.urdf = rospy.get_param('robot_description%d' % self.id, None)
-    if not self.urdf:
+    self.urdf_string = rospy.get_param('robot_description%d' % self.id, None)
+    if not self.urdf_string:
       rospy.logerr('No URDF description for robot %d' % self.id)
       return
+    self.urdf = URDF.from_parameter_server(key='robot_description%d' % self.id)
+    print(self.urdf)
     self.joint_sub = rospy.Subscriber('joint_states%d' % self.id, JointState, self.on_joint)
 
   def on_joint(self, msg):
@@ -37,12 +40,16 @@ def main(args):
 
   robots = []
   for robot_id in range(robots_count):
-    robots.append(Robot(robot_id))
+    robots.append(RobotJoints(robot_id))
 
   common_urdf = rospy.get_param('robot_description', None)
   if not common_urdf:
-    TODO
+    rospy.logerr('No URDF description for common robot')
+    return
 
+  # TODO
+  # - parse common_urdf https://github.com/ros/urdfdom/tree/master/urdf_parser_py
+  #   - find joint names of each robot in common robot
 
   rospy.loginfo('Spinning')
   rospy.spin()
