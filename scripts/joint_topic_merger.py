@@ -51,12 +51,12 @@ class Robot(object):
     all_target_joint_names = []
     for joint in root.iter('joint'):
       all_target_joint_names.append(joint.attrib['name'])
-    rospy.logdebug('all_target_joint_names: %s' % all_target_joint_names)
+    rospy.logdebug('%d: all_target_joint_names: %s' % (self.id, all_target_joint_names))
     target_joint_names = []
     for src_name in self.source_joint_names:
       target_names = [joint_name for joint_name in all_target_joint_names if joint_name.endswith(self.name + '__' + src_name)]
       if len(target_names) != 1:
-        rospy.logerr('source joint name %s not contained or unique within merged robot: %s. Quitting.' % (src_name, target_names))
+        rospy.logerr('%d: source joint name %s not contained or unique within merged robot: %s. Quitting.' % (self.id, src_name, target_names))
         sys.exit(2)
       target_joint_names.append(target_names[0])
     self.target_joint_names = target_joint_names
