@@ -2,6 +2,7 @@
 
 from __future__ import print_function
 
+import copy
 import roslib
 import rospy
 import sys
@@ -24,6 +25,7 @@ class Robot(object):
     self.name = ET.fromstring(self.urdf).attrib['name']
     rospy.loginfo('id=%d name=%s' % (self.id, self.name))
     self.joint_sub = rospy.Subscriber('joint_states%d' % self.id, JointState, self.on_joint)
+    self.target_joint_pub = rospy.Publisher('joint_states', JointState)
 
 
   def on_joint(self, msg):
@@ -36,8 +38,9 @@ class Robot(object):
       sys.exit(1)
 
     if self.target_joint_names:
-      # TODO-next publish msg with msg.name = self.target_joint_names
-      pass
+      target_msg = copy.deepcopy(msg)
+      target_msg.name = self.target_joint_names
+      self.target_joint_pub.publish(target_msg)
 
 
   def get_target_joint_names(self, target_urdf):
