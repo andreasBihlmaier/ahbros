@@ -61,6 +61,14 @@ class Robot(object):
       target_joint_names.append(target_names[0])
     self.target_joint_names = target_joint_names
     rospy.loginfo('%d: target_joint_names: %s' % (self.id, self.target_joint_names))
+    rename_dict = {}
+    for (joint_idx, src_joint_name) in enumerate(self.source_joint_names):
+      rename_dict[src_joint_name] = self.target_joint_names[joint_idx]
+    rospy.loginfo('%d: rename_dict: %s' % (self.id, rename_dict))
+    # append dictionary instead of replacing it
+    old_dict = rospy.get_param('single_to_composite_joints')
+    rename_dict.update(old_dict)
+    rospy.set_param('single_to_composite_joints', rename_dict)
 
 
 
