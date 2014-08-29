@@ -16,7 +16,7 @@ def main():
 
   rospy.init_node('capture_image_topic', anonymous=True)
 
-  rospy.loginfo('Waiting for image msg')
+  rospy.loginfo('Waiting for image msg on %s' % args.topic)
   ros_img = rospy.wait_for_message(args.topic, Image)
 
   bridge = CvBridge()
