@@ -4,12 +4,21 @@ import sys
 import rospy
 import cv2
 import numpy as np
+import argparse
 from sensor_msgs.msg import Image
 from cv_bridge import CvBridge, CvBridgeError
 
-all_captured = False
+def main():
+  parser = argparse.ArgumentParser()
+  parser.add_argument('-t', '--topic', default='image_raw', help='Image topic')
+  parser.add_argument('-o', '--output_file', default='/tmp/image.png', help='Image destination file')
+  args = parser.parse_args(rospy.myargv()[1:])
 
-def on_image(ros_img):
+  rospy.init_node('capture_image_topic', anonymous=True)
+
+  rospy.loginfo('Waiting for image msg')
+  ros_img = rospy.wait_for_message(args.topic, Image)
+
   bridge = CvBridge()
   try:
     cv_img = bridge.imgmsg_to_cv(ros_img, "bgr8")
@@ -17,19 +26,8 @@ def on_image(ros_img):
   except CvBridgeError, e:
     print e
 
-  cv2.imwrite('/tmp/test.png', cv2_img)
-  global all_captured
-  all_captured = True
+  cv2.imwrite(args.output_file, cv2_img)
 
-def main(args):
-  rospy.init_node('capture_image_topic', anonymous=True)
-
-  image_subscriber = rospy.Subscriber('image_raw', Image, on_image)
-
-  rospy.loginfo('Spinning')
-  global all_captured
-  while not rospy.is_shutdown() and not all_captured:
-    rospy.sleep(rospy.Duration(0, 10 * 1000))
 
 if __name__ == '__main__':
-  main(sys.argv)
+  main()
