@@ -21,8 +21,7 @@ def main():
 
   bridge = CvBridge()
   try:
-    cv_img = bridge.imgmsg_to_cv(ros_img, "bgr8")
-    cv2_img = np.array(cv_img, dtype=np.uint8)
+    cv2_img = bridge.imgmsg_to_cv2(ros_img, "bgr8")
   except CvBridgeError, e:
     print e
 
