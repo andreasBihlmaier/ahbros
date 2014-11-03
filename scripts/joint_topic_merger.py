@@ -45,7 +45,7 @@ class Robot(object):
 
   def get_target_joint_names(self, target_urdf):
     while not self.source_joint_names:
-      rospy.loginfo('Waiting to receive source_joint_names')
+      rospy.loginfo('%d: Waiting to receive source_joint_names' % self.id)
       rospy.sleep(1)
     root = ET.fromstring(target_urdf)
     all_target_joint_names = []
