@@ -74,6 +74,7 @@ class ImageProjector(object):
     self.overlay_mask = np.zeros(self.last_cv2_image.shape[:2], np.uint8)
 
     if self.points2d:
+      points2d_image = np.zeros(self.last_cv2_image.shape, np.uint8)
       for (point2d_index, point2d) in enumerate(self.points2d.points):
         if len(self.points2d.points) == len(self.points2d.sizes):
           size = self.points2d.sizes[point2d_index]
@@ -83,10 +84,12 @@ class ImageProjector(object):
           color = self.points2d.colors[point2d_index]
         else:
           color = self.points2d.colors[0]
-        cv2.circle(self.overlay_image, toInt(point2d), int(size), toCV(color), -1)
-        cv2.circle(self.overlay_mask, toInt(point2d), int(size), 255, -1)
+        cv2.circle(points2d_image, toInt(point2d), int(size/2), toCV(color), -1)
+        cv2.circle(self.overlay_mask, toInt(point2d), int(size/2), 255, -1)
+      self.overlay_image += points2d_image
 
     if self.points3d:
+      points3d_image = np.zeros(self.last_cv2_image.shape, np.uint8)
       for (point3d_index, point3d) in enumerate(self.points3d.points):
         if len(self.points3d.points) == len(self.points3d.sizes):
           size = self.points3d.sizes[point3d_index]
@@ -96,12 +99,19 @@ class ImageProjector(object):
           color = self.points3d.colors[point3d_index]
         else:
           color = self.points3d.colors[0]
-        projected_point = self.geometry_camera.project3dToPixel(toFloatTuple(point3d))
+        point3d_tuple = toFloatTuple(point3d)
+        projected_point = self.geometry_camera.project3dToPixel(point3d_tuple)
         if containsNaN(projected_point):
           rospy.logerr('Projection of %s contains NaNs' % point3d)
         else:
-          cv2.circle(self.overlay_image, toInt(projected_point), int(size), toCV(color), -1)
-          cv2.circle(self.overlay_mask, toInt(projected_point), int(size), 255, -1)
+          # Assumes points are in xy-plane of camera optical frame
+          outer = list(point3d_tuple)
+          outer[0] += size/2
+          projected_outer = self.geometry_camera.project3dToPixel(outer)
+          size_px = abs(projected_point[0] - projected_outer[0])
+          cv2.circle(points3d_image, toInt(projected_point), int(size_px), toCV(color), -1)
+          cv2.circle(self.overlay_mask, toInt(projected_point), int(size_px), 255, -1)
+      self.overlay_image += points3d_image
 
 
   def on_image(self, ros_img):
