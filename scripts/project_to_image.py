@@ -45,6 +45,16 @@ def containsNaN(vals):
   return False
 
 
+def drawText(image, point, text):
+  fontFace = cv2.FONT_HERSHEY_PLAIN
+  fontScale = 1
+  thickness = 1
+  textSize, baseline = cv2.getTextSize(text, fontFace, fontScale, thickness)
+  baseline += thickness
+  text_origin = (point[0] - textSize[0]/2, point[1] + textSize[1]/2);
+  cv2.putText(image, text, text_origin, fontFace, fontScale, (255,255,255), thickness)
+
+
 
 class ImageProjector(object):
   def __init__(self):
@@ -84,8 +94,12 @@ class ImageProjector(object):
           color = self.points2d.colors[point2d_index]
         else:
           color = self.points2d.colors[0]
-        cv2.circle(points2d_image, toInt(point2d), int(size/2), toCV(color), -1)
-        cv2.circle(self.overlay_mask, toInt(point2d), int(size/2), 255, -1)
+        point2d_tuple = toInt(point2d)
+        cv2.circle(points2d_image, point2d_tuple, int(size/2), toCV(color), -1)
+        cv2.circle(self.overlay_mask, point2d_tuple, int(size/2), 255, -1)
+        if self.points2d.numbers:
+          drawText(points2d_image, point2d_tuple, str(point2d_index))
+          drawText(self.overlay_mask, point2d_tuple, str(point2d_index))
       self.overlay_image += points2d_image
 
     if self.points3d:
@@ -104,13 +118,14 @@ class ImageProjector(object):
         if containsNaN(projected_point):
           rospy.logerr('Projection of %s contains NaNs' % point3d)
         else:
-          # Assumes points are in xy-plane of camera optical frame
+          # Assume points are in xy-plane of camera optical frame, no perspective projection of point shape
           outer = list(point3d_tuple)
           outer[0] += size/2
           projected_outer = self.geometry_camera.project3dToPixel(outer)
           size_px = abs(projected_point[0] - projected_outer[0])
-          cv2.circle(points3d_image, toInt(projected_point), int(size_px), toCV(color), -1)
-          cv2.circle(self.overlay_mask, toInt(projected_point), int(size_px), 255, -1)
+          projected_point_tuple = toInt(projected_point)
+          cv2.circle(points3d_image, projected_point_tuple, int(size_px), toCV(color), -1)
+          cv2.circle(self.overlay_mask, projected_point_tuple, int(size_px), 255, -1)
       self.overlay_image += points3d_image
 
 
