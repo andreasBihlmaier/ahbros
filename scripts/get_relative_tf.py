@@ -42,7 +42,7 @@ def main(args):
   args = parser.parse_args(rospy.myargv()[1:])
   from_tf, to_tf = args.from_tf, args.to_tf
 
-  print('Consider using: rosrun tf2 tf2_echo %s %s' % (from_tf, to_tf))
+  #print('Consider using: rosrun tf2 tf2_echo %s %s' % (from_tf, to_tf))
 
   rospy.init_node('get_relative_tf', anonymous=True)
   tf_listener = tf.TransformListener()
@@ -55,6 +55,7 @@ def main(args):
   print('Matrix:\n%s' % matrix)
   poseMsg = homogeneous2pose_msg(matrix)
   print('geometry_msgs/Pose:\n%s' % poseMsg)
+  print('As static publisher: rosrun tf static_transform_publisher  %s  %s  %s %s 100' % (' '.join([str(p) for p in position]), ' '.join([str(q) for q in quaternion]), from_tf, to_tf))
 
 
 if __name__ == '__main__':
