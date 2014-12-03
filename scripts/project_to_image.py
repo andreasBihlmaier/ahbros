@@ -11,12 +11,24 @@ import cv2
 import sys
 import numbers
 import math
+import tf
+from tf.transformations import *
 from sensor_msgs.msg import CameraInfo, Image
 from geometry_msgs.msg import Point
 from cv_bridge import CvBridge, CvBridgeError
 
 from ahbros.msg import *
 from ahbros.srv import *
+
+
+
+def translation_quaternion2homogeneous(translation, quaternion):
+  """
+  Translation: [x, y, z]
+  Quaternion: [x, y, z, w]
+  """
+  homogeneous = concatenate_matrices(translation_matrix(translation), quaternion_matrix(quaternion))
+  return homogeneous
 
 
 def toInt(val):
@@ -56,6 +68,7 @@ def drawText(image, point, text):
 
 
 
+
 class ImageProjector(object):
   def __init__(self):
     rospy.loginfo('Waiting for camera info')
@@ -63,17 +76,51 @@ class ImageProjector(object):
     print('camera_info:\n%s' % self.camera_info)
     self.geometry_camera = image_geometry.PinholeCameraModel()
     self.geometry_camera.fromCameraInfo(self.camera_info)
+    self.optical_frame = self.geometry_camera.tf_frame
 
+    self.tf_listener = tf.TransformListener()
     self.image_pub = rospy.Publisher('image_project', Image, queue_size = 1)
     self.image_sub = rospy.Subscriber('image_raw', Image, self.on_image)
-    self.points_service = rospy.Service('project_points3d', SetProjectPoints3D, self.on_project_points3d)
-    self.points_service = rospy.Service('project_points2d', SetProjectPoints2D, self.on_project_points2d)
+    self.points3d_service = rospy.Service('project_points3d', SetProjectPoints3D, self.on_project_points3d)
+    self.points2d_service = rospy.Service('project_points2d', SetProjectPoints2D, self.on_project_points2d)
+    self.tf_service = rospy.Service('project_tf', SetProjectTF, self.on_project_tf)
 
     self.last_cv2_image = None
     self.overlay_image = None
     self.overlay_mask = None
     self.points2d = None
     self.points3d = None
+    self.tf = None
+
+
+  def draw_point3d(self, image, mask, point3d, size, color):
+    projected_point = self.geometry_camera.project3dToPixel(point3d)
+    if containsNaN(projected_point):
+      rospy.logerr('Projection of %s contains NaNs' % point3d)
+      return None
+
+    # Assume points are in xy-plane of camera optical frame, no perspective projection of point shape
+    outer = list(point3d)
+    outer[0] += size/2
+    projected_outer = self.geometry_camera.project3dToPixel(outer)
+    size_px = int(abs(projected_point[0] - projected_outer[0]))
+    projected_point_tuple = toInt(projected_point)
+    cv2.circle(image, projected_point_tuple, size_px, color, -1)
+    cv2.circle(mask, projected_point_tuple, size_px, 255, -1)
+    return projected_point_tuple, (size_px * 2)
+
+
+  def draw_line3d(self, image, mask, p1, p2, size, color):
+    p1_px, line_width1 = self.draw_point3d(image, mask, p1, size, color)
+    p2_px, line_width2 = self.draw_point3d(image, mask, p2, size, color)
+    line_width = int((line_width1 + line_width2) / 2)
+    cv2.line(image, p1_px, p2_px, color, line_width)
+    cv2.line(mask, p1_px, p2_px, 255, line_width)
+
+
+  def draw_text(self, image, mask, pos2d, text):
+    drawText(image, pos2d, text)
+    drawText(mask, pos2d, text)
 
 
   def redraw_overlay(self):
@@ -98,8 +145,7 @@ class ImageProjector(object):
         cv2.circle(points2d_image, point2d_tuple, int(size/2), toCV(color), -1)
         cv2.circle(self.overlay_mask, point2d_tuple, int(size/2), 255, -1)
         if self.points2d.numbers:
-          drawText(points2d_image, point2d_tuple, str(point2d_index))
-          drawText(self.overlay_mask, point2d_tuple, str(point2d_index))
+          self.draw_text(points2d_image, self.overlay_mask, point2d_tuple, str(point2d_index))
       self.overlay_image += points2d_image
 
     if self.points3d:
@@ -113,20 +159,32 @@ class ImageProjector(object):
           color = self.points3d.colors[point3d_index]
         else:
           color = self.points3d.colors[0]
-        point3d_tuple = toFloatTuple(point3d)
-        projected_point = self.geometry_camera.project3dToPixel(point3d_tuple)
-        if containsNaN(projected_point):
-          rospy.logerr('Projection of %s contains NaNs' % point3d)
-        else:
-          # Assume points are in xy-plane of camera optical frame, no perspective projection of point shape
-          outer = list(point3d_tuple)
-          outer[0] += size/2
-          projected_outer = self.geometry_camera.project3dToPixel(outer)
-          size_px = abs(projected_point[0] - projected_outer[0])
-          projected_point_tuple = toInt(projected_point)
-          cv2.circle(points3d_image, projected_point_tuple, int(size_px), toCV(color), -1)
-          cv2.circle(self.overlay_mask, projected_point_tuple, int(size_px), 255, -1)
+        self.draw_point3d(points3d_image, self.overlay_mask, toFloatTuple(point3d), size, toCV(color))
       self.overlay_image += points3d_image
+
+    if self.tf:
+      from_tf, to_tf = self.optical_frame, self.tf.frame_id
+      try:
+        self.tf_listener.waitForTransform(from_tf, to_tf, rospy.Time(), rospy.Duration(1.0))
+        position, quaternion = self.tf_listener.lookupTransform(from_tf, to_tf, rospy.Time())
+        transform = translation_quaternion2homogeneous(position, quaternion)
+
+        tf_image = np.zeros(self.last_cv2_image.shape, np.uint8)
+        origin_pos, origin_size = self.draw_point3d(tf_image, self.overlay_mask, position, self.tf.axis_radius, (255, 255, 0))
+        label_pos = (origin_pos[0], origin_pos[1] + origin_size + 5)
+        self.draw_text(tf_image, self.overlay_mask, label_pos, to_tf)
+
+        xaxis_tip = (transform * np.matrix((self.tf.axis_length, 0, 0, 1)).reshape(4,1))[:3,0]
+        self.draw_line3d(tf_image, self.overlay_mask, position, xaxis_tip, self.tf.axis_radius, (0, 0, 255))
+        yaxis_tip = (transform * np.matrix((0, self.tf.axis_length, 0, 1)).reshape(4,1))[:3,0]
+        self.draw_line3d(tf_image, self.overlay_mask, position, yaxis_tip, self.tf.axis_radius, (0, 255, 0))
+        zaxis_tip = (transform * np.matrix((0, 0, self.tf.axis_length, 1)).reshape(4,1))[:3,0]
+        self.draw_line3d(tf_image, self.overlay_mask, position, zaxis_tip, self.tf.axis_radius, (255, 0, 0))
+
+        self.overlay_image += tf_image
+      except Exception as e:
+        rospy.logerr('Unable to lookup transfrom from %s to %s:' % (from_tf, to_tf))
+        rospy.logerr('Exception: %s' % str(e))
 
 
   def on_image(self, ros_img):
@@ -179,6 +237,15 @@ class ImageProjector(object):
     self.points2d = points_msg.points
     self.redraw_overlay()
     return SetProjectPoints2DResponse(True)
+
+
+  def on_project_tf(self, tf_msg):
+    print('Got TF:\n%s' % tf_msg.tf)
+
+    self.tf = tf_msg.tf
+    self.redraw_overlay()
+
+    return SetProjectTFResponse(True)
 
 
 

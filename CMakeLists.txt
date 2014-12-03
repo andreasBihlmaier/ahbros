@@ -31,6 +31,7 @@ add_message_files(
   Point2D.msg
   ProjectPoints2D.msg
   ProjectPoints3D.msg
+  ProjectTF.msg
 )
 
 ## Generate services in the 'srv' folder
@@ -38,6 +39,7 @@ add_service_files(
   FILES
   SetProjectPoints2D.srv
   SetProjectPoints3D.srv
+  SetProjectTF.srv
 )
 
 ## Generate added messages and services with any dependencies listed here
