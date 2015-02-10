@@ -50,6 +50,18 @@ template<> std::string toString<tf::Pose>(const tf::Pose& p_pose)
   return ss.str();
 }
 
+/**
+ * Convert tf::StampedTransform to string
+ */
+template<> std::string toString<tf::StampedTransform>(const tf::StampedTransform& p_transform)
+{
+  std::stringstream ss;
+
+  ss << "StampedTransform(Quaternion=" << toString(p_transform.getRotation()) << "; Vector3=" << toString(p_transform.getOrigin()) << ")";
+
+  return ss.str();
+}
+
 } // namespace: string
 
 namespace ros {
