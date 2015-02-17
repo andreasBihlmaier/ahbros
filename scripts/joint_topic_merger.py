@@ -60,7 +60,7 @@ class Robot(object):
       return
     self.name = ET.fromstring(self.urdf).attrib['name']
     rospy.loginfo('id=%d name=%s' % (self.id, self.name))
-    self.joint_sub = rospy.Subscriber('joint_states%d' % self.id, JointState, self.on_joint)
+    self.joint_sub = rospy.Subscriber('joint_states%d' % self.id, JointState, self.on_joint, queue_size = 1)
     if not self.aggregator:
       self.target_joint_pub = rospy.Publisher('joint_states', JointState, queue_size = 1)
     else:
