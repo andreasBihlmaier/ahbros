@@ -80,7 +80,7 @@ class ImageProjector(object):
 
     self.tf_listener = tf.TransformListener()
     self.image_pub = rospy.Publisher('image_project', Image, queue_size = 1)
-    self.image_sub = rospy.Subscriber('image_raw', Image, self.on_image)
+    self.image_sub = rospy.Subscriber('image_raw', Image, self.on_image, queue_size = 1)
     self.points3d_service = rospy.Service('project_points3d', SetProjectPoints3D, self.on_project_points3d)
     self.points2d_service = rospy.Service('project_points2d', SetProjectPoints2D, self.on_project_points2d)
     self.tf_service = rospy.Service('project_tf', SetProjectTF, self.on_project_tf)
@@ -199,6 +199,8 @@ class ImageProjector(object):
       return
 
     if not self.overlay_image is None:
+      if self.tf and self.tf.updatetf:
+        self.redraw_overlay()
       cv2.add(cv2_img, self.overlay_image, cv2_img, self.overlay_mask)
 
     ros_img_project = bridge.cv2_to_imgmsg(cv2_img, "bgr8")
