@@ -1,5 +1,7 @@
 #!/usr/bin/env python
 
+from __future__ import print_function
+
 import roslib
 import rospy
 import sys
@@ -13,6 +15,8 @@ def main(args):
   args = parser.parse_args(rospy.myargv()[1:])
 
   rospy.init_node('on_shutdown_param_cleaner', anonymous=True)
+
+  print('Will delete params %s on shutdown' % args.params)
 
   while not rospy.is_shutdown():
     rospy.sleep(1)
