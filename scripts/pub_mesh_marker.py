@@ -78,7 +78,7 @@ def main():
   parser.add_argument('mesh_frame', help='Mesh frame')
   parser.add_argument('marker_name', help='Marker name (=namespace)')
   parser.add_argument('mesh_file', help='Mesh file')
-  args = parser.parse_args()
+  args = parser.parse_args(rospy.myargv()[1:])
 
   rospy.init_node('pub_mesh_marker', anonymous = True)
 
