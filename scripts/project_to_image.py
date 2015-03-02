@@ -83,7 +83,7 @@ class ImageProjector(object):
     self.image_sub = rospy.Subscriber('image_raw', Image, self.on_image, queue_size = 1)
     self.points3d_service = rospy.Service('project_points3d', SetProjectPoints3D, self.on_project_points3d)
     self.points2d_service = rospy.Service('project_points2d', SetProjectPoints2D, self.on_project_points2d)
-    self.tf_service = rospy.Service('project_tf', SetProjectTF, self.on_project_tf)
+    self.tf_service = rospy.Service('project_tf', SetProjectTFs, self.on_project_tfs)
 
     self.last_cv2_image = None
     self.overlay_image = None
@@ -163,28 +163,48 @@ class ImageProjector(object):
       self.overlay_image += points3d_image
 
     if self.tf:
-      from_tf, to_tf = self.optical_frame, self.tf.frame_id
-      try:
-        self.tf_listener.waitForTransform(from_tf, to_tf, rospy.Time(), rospy.Duration(1.0))
-        position, quaternion = self.tf_listener.lookupTransform(from_tf, to_tf, rospy.Time())
-        transform = translation_quaternion2homogeneous(position, quaternion)
+      tf_image = np.zeros(self.last_cv2_image.shape, np.uint8)
+      for (frame_id_index, frame_id) in enumerate(self.tf.frame_ids):
+        from_tf, to_tf = self.optical_frame, frame_id
+        try:
+          if len(self.tf.frame_ids) == len(self.tf.updatetf):
+            update_tf = self.tf.updatetf[frame_id_index]
+          else:
+            update_tf = self.tf.updatetf[0]
 
-        tf_image = np.zeros(self.last_cv2_image.shape, np.uint8)
-        origin_pos, origin_size = self.draw_point3d(tf_image, self.overlay_mask, position, self.tf.axis_radius, (255, 255, 0))
-        label_pos = (origin_pos[0], origin_pos[1] + origin_size + 5)
-        self.draw_text(tf_image, self.overlay_mask, label_pos, to_tf)
+          if not update_tf:
+            self.tf_listener.waitForTransform(from_tf, to_tf, rospy.Time(), rospy.Duration(1.0))
+          if update_tf or not self.tf_updated[frame_id_index]:
+            position, quaternion = self.tf_listener.lookupTransform(from_tf, to_tf, rospy.Time())
+            transform = translation_quaternion2homogeneous(position, quaternion)
 
-        xaxis_tip = (transform * np.matrix((self.tf.axis_length, 0, 0, 1)).reshape(4,1))[:3,0]
-        self.draw_line3d(tf_image, self.overlay_mask, position, xaxis_tip, self.tf.axis_radius, (0, 0, 255))
-        yaxis_tip = (transform * np.matrix((0, self.tf.axis_length, 0, 1)).reshape(4,1))[:3,0]
-        self.draw_line3d(tf_image, self.overlay_mask, position, yaxis_tip, self.tf.axis_radius, (0, 255, 0))
-        zaxis_tip = (transform * np.matrix((0, 0, self.tf.axis_length, 1)).reshape(4,1))[:3,0]
-        self.draw_line3d(tf_image, self.overlay_mask, position, zaxis_tip, self.tf.axis_radius, (255, 0, 0))
+          if len(self.tf.frame_ids) == len(self.tf.axis_length):
+            axis_length = self.tf.axis_length[frame_id_index]
+          else:
+            axis_length = self.tf.axis_length[0]
 
-        self.overlay_image += tf_image
-      except Exception as e:
-        rospy.logerr('Unable to lookup transfrom from %s to %s:' % (from_tf, to_tf))
-        rospy.logerr('Exception: %s' % str(e))
+          if len(self.tf.frame_ids) == len(self.tf.axis_radius):
+            axis_radius = self.tf.axis_radius[frame_id_index]
+          else:
+            axis_radius = self.tf.axis_radius[0]
+
+          origin_pos, origin_size = self.draw_point3d(tf_image, self.overlay_mask, position, axis_radius, (255, 255, 0))
+          label_pos = (origin_pos[0], origin_pos[1] + origin_size + 5)
+          self.draw_text(tf_image, self.overlay_mask, label_pos, to_tf)
+
+          if axis_radius > 0 and axis_length > 0:
+            xaxis_tip = (transform * np.matrix((axis_length, 0, 0, 1)).reshape(4,1))[:3,0]
+            self.draw_line3d(tf_image, self.overlay_mask, position, xaxis_tip, axis_radius, (0, 0, 255))
+            yaxis_tip = (transform * np.matrix((0, axis_length, 0, 1)).reshape(4,1))[:3,0]
+            self.draw_line3d(tf_image, self.overlay_mask, position, yaxis_tip, axis_radius, (0, 255, 0))
+            zaxis_tip = (transform * np.matrix((0, 0, axis_length, 1)).reshape(4,1))[:3,0]
+            self.draw_line3d(tf_image, self.overlay_mask, position, zaxis_tip, axis_radius, (255, 0, 0))
+
+          self.tf_updated[frame_id_index] = True
+        except Exception as e:
+          rospy.logerr('Unable to lookup transfrom from %s to %s:' % (from_tf, to_tf))
+          rospy.logerr('Exception: %s' % str(e))
+      self.overlay_image += tf_image
 
 
   def on_image(self, ros_img):
@@ -199,7 +219,7 @@ class ImageProjector(object):
       return
 
     if not self.overlay_image is None:
-      if self.tf and self.tf.updatetf:
+      if self.tf and any(self.tf.updatetf):
         self.redraw_overlay()
       cv2.add(cv2_img, self.overlay_image, cv2_img, self.overlay_mask)
 
@@ -241,13 +261,14 @@ class ImageProjector(object):
     return SetProjectPoints2DResponse(True)
 
 
-  def on_project_tf(self, tf_msg):
-    print('Got TF:\n%s' % tf_msg.tf)
+  def on_project_tfs(self, tfs_msg):
+    print('Got TFs:\n%s' % tfs_msg.tf)
 
-    self.tf = tf_msg.tf
+    self.tf = tfs_msg.tf
+    self.tf_updated = {}
     self.redraw_overlay()
 
-    return SetProjectTFResponse(True)
+    return SetProjectTFsResponse(True)
 
 
 
