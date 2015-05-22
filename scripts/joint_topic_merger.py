@@ -49,6 +49,8 @@ class JointTopicAggregator(object):
 
 
 class Robot(object):
+  joint_mappings = {}
+
   def __init__(self, id, aggregator = None):
     self.id = id
     self.source_joint_names = []
@@ -112,10 +114,12 @@ class Robot(object):
     for (joint_idx, src_joint_name) in enumerate(self.source_joint_names):
       rename_dict[src_joint_name] = self.target_joint_names[joint_idx]
     rospy.loginfo('%d: rename_dict: %s' % (self.id, rename_dict))
-    # append dictionary instead of replacing it
-    param_dict = rospy.get_param('single_to_composite_joints', {})
-    param_dict.update(rename_dict)
-    rospy.set_param('single_to_composite_joints', param_dict)
+    Robot.joint_mappings.update(rename_dict)
+
+
+def publish_joint_mappings():
+  print('--->', Robot.joint_mappings)
+  rospy.set_param('single_to_composite_joints', Robot.joint_mappings)
 
 
 
@@ -145,6 +149,7 @@ def main(args):
 
   for robot in robots:
     robot.get_target_joint_names(common_urdf)
+  publish_joint_mappings()
   
   if args.aggregate:
     aggregator.set_states(len(rospy.get_param('single_to_composite_joints', {})))
