@@ -18,8 +18,11 @@ def main(args):
 
   print('Will delete params %s on shutdown' % args.params)
 
-  while not rospy.is_shutdown():
-    rospy.sleep(1)
+  try:
+    while not rospy.is_shutdown():
+      rospy.sleep(1)
+  except rospy.exceptions.ROSInterruptException:
+    pass
 
   for param in args.params:
     if rospy.has_param(param):
