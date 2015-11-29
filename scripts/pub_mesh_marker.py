@@ -11,6 +11,7 @@ import rospy
 import tf
 from geometry_msgs.msg import Pose, PoseArray, PoseStamped, Point
 from visualization_msgs.msg import Marker, MarkerArray
+from std_msgs.msg import ColorRGBA
 
 
 
@@ -42,16 +43,24 @@ class MarkerPublisher(object):
     self.marker_pub.publish(marker_msg)
     self.marker_msgs.append(marker_msg)
 
-  def add_marker(self, mesh_frame, marker_name, mesh_file):
+  def add_marker(self, mesh_frame, marker_name, mesh_file, use_materials=False, color=None):
     marker_msg = Marker()
     marker_msg.frame_locked = True
     marker_msg.id = 0
     marker_msg.action = Marker.ADD
-    marker_msg.mesh_use_embedded_materials = False
-    marker_msg.color.a = 1.0
-    marker_msg.color.r = 0.6
-    marker_msg.color.g = 0.6
-    marker_msg.color.b = 0.6
+    marker_msg.mesh_use_embedded_materials = use_materials
+    if marker_msg.mesh_use_embedded_materials:
+      marker_msg.color.a = 0
+      marker_msg.color.r = 0
+      marker_msg.color.g = 0
+      marker_msg.color.b = 0
+    elif color:
+      marker_msg.color = color
+    else:
+      marker_msg.color.a = 1.0
+      marker_msg.color.r = 0.6
+      marker_msg.color.g = 0.6
+      marker_msg.color.b = 0.6
     marker_msg.header.stamp = rospy.get_rostime()
     #marker_msg.lifetime =
     #marker_msg.pose =
@@ -75,6 +84,8 @@ def main():
   parser = argparse.ArgumentParser()
   parser.add_argument('-f', '--frequency', nargs=1, type=int, default=1, help='Publish frequency')
   parser.add_argument('-t', '--topic', nargs=1, type=str, default='/visualization_marker', help='Marker topic')
+  parser.add_argument('-m', '--materials', action='store_true', help='Use embedded materials')
+  parser.add_argument('-c', '--colors', nargs=4, type=float, help='Use embedded materials')
   parser.add_argument('mesh_frame', help='Mesh frame')
   parser.add_argument('marker_name', help='Marker name (=namespace)')
   parser.add_argument('mesh_file', help='Mesh file')
@@ -83,7 +94,11 @@ def main():
   rospy.init_node('pub_mesh_marker', anonymous = True)
 
   marker_pub = MarkerPublisher(args.topic if type(args.topic) == str else args.topic[0], args.frequency)
-  marker_pub.add_marker(args.mesh_frame, args.marker_name, args.mesh_file)
+  colors = None
+  if args.colors:
+    colors = ColorRGBA()
+    colors.r, colors.g, colors.b, colors.a = args.colors
+  marker_pub.add_marker(args.mesh_frame, args.marker_name, args.mesh_file, args.materials, colors)
 
   rospy.loginfo('Spinning')
   rospy.spin()
