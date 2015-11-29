@@ -50,17 +50,17 @@ class MarkerPublisher(object):
     marker_msg.action = Marker.ADD
     marker_msg.mesh_use_embedded_materials = use_materials
     if marker_msg.mesh_use_embedded_materials:
-      marker_msg.color.a = 0
       marker_msg.color.r = 0
       marker_msg.color.g = 0
       marker_msg.color.b = 0
+      marker_msg.color.a = 0
     elif color:
       marker_msg.color = color
     else:
-      marker_msg.color.a = 1.0
       marker_msg.color.r = 0.6
       marker_msg.color.g = 0.6
       marker_msg.color.b = 0.6
+      marker_msg.color.a = 1.0
     marker_msg.header.stamp = rospy.get_rostime()
     #marker_msg.lifetime =
     #marker_msg.pose =
