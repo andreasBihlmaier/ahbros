@@ -1,6 +1,6 @@
-from math import acos, sqrt
+from math import acos, sqrt, radians, degrees, pi
 from tf.transformations import *
-from geometry_msgs.msg import Pose
+from geometry_msgs.msg import Point, Quaternion, Pose, PoseStamped
 
 def homogeneous2translation_quaternion(homogeneous):
   """
@@ -54,3 +54,32 @@ def homogeneous2axis_angle(homogeneous):
   return (ax, ay, az)
 
 
+def rpy2homogeneous(rpy):
+  """
+  RPY (aka EulerZYX): [sx, sy, sz]
+  """
+  homogeneous = euler_matrix(rpy[0], rpy[1], rpy[2], 'rzyx')
+  return homogeneous
+
+
+def rpy2quaternion(rpy):
+  """
+  RPY (aka EulerZYX): [sx, sy, sz]
+  """
+  return quaternion_from_euler(rpy[0], rpy[1], rpy[2], 'rzyx')
+
+
+def euler2quaternion(rpy):
+  """
+  RPY: [sx, sy, sz]
+  """
+  return quaternion_from_euler(rpy[0], rpy[1], rpy[2], 'rxyz')
+
+
+def quaternion_vector2quaternion_ros(quaternion_vector):
+  """
+  Quaternion: [x, y, z, w]
+  """
+  quaternion_ros = Quaternion()
+  quaternion_ros.x, quaternion_ros.y, quaternion_ros.z, quaternion_ros.w = quaternion_vector
+  return quaternion_ros
