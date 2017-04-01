@@ -1,6 +1,7 @@
 from math import acos, sqrt, radians, degrees, pi
 from tf.transformations import *
-from geometry_msgs.msg import Point, Quaternion, Pose, PoseStamped
+from geometry_msgs.msg import Point, Quaternion, Pose, PoseStamped, Transform, TransformStamped
+
 
 def homogeneous2translation_quaternion(homogeneous):
   """
@@ -23,6 +24,31 @@ def homogeneous2pose_msg(homogeneous):
   pose.orientation.z = quaternion[2]
   pose.orientation.w = quaternion[3]
   return pose
+
+
+def pose_msg2homogeneous(pose):
+  trans = translation_matrix((pose.position.x, pose.position.y, pose.position.z))
+  rot = quaternion_matrix((pose.orientation.x, pose.orientation.y, pose.orientation.z, pose.orientation.w))
+  return concatenate_matrices(trans, rot)
+
+
+def homogeneous2transform_msg(homogeneous):
+  transform = Transform()
+  translation, quaternion = homogeneous2translation_quaternion(homogeneous)
+  transform.translation.x = translation[0]
+  transform.translation.y = translation[1]
+  transform.translation.z = translation[2]
+  transform.rotation.x = quaternion[0]
+  transform.rotation.y = quaternion[1]
+  transform.rotation.z = quaternion[2]
+  transform.rotation.w = quaternion[3]
+  return transform
+
+
+def transform_msg2homogeneous(transform):
+  trans = translation_matrix((transform.translation.x, transform.translation.y, transform.translation.z))
+  rot = quaternion_matrix((transform.rotation.x, transform.rotation.y, transform.rotation.z, transform.rotation.w))
+  return concatenate_matrices(trans, rot)
 
 
 def homogeneous2quaternion(homogeneous):

@@ -4,7 +4,7 @@ import roslib
 import rospy
 import sys
 import argparse
-import tf
+import tf2_ros
 import numpy as np
 from tf.transformations import *
 from math import acos, sqrt
@@ -22,19 +22,21 @@ def main(args):
   #print('Consider using: rosrun tf2 tf2_echo %s %s' % (from_tf, to_tf))
 
   rospy.init_node('get_relative_tf', anonymous=True)
-  tf_listener = tf.TransformListener()
+  tf_buffer = tf2_ros.Buffer()
+  tf_listener = tf2_ros.TransformListener(tf_buffer)
 
-  tf_listener.waitForTransform(from_tf, to_tf, rospy.Time(), rospy.Duration(4.0))
-  position, quaternion = tf_listener.lookupTransform(from_tf, to_tf, rospy.Time())
+  transform_stamped = tf_buffer.lookup_transform(from_tf, to_tf, rospy.Time(), rospy.Duration(4.0))
+  print('geometry_msgs/Transform:\n%s' % transform_stamped.transform)
+  homogeneous = transform_msg2homogeneous(transform_stamped.transform)
+  print('Homogeneous:\n%s' % homogeneous)
+  position, quaternion = homogeneous2translation_quaternion(homogeneous)
   print('Translation: %s' % str(position))
   print('Quaternion: %s' % str(quaternion))
-  matrix = np.dot(translation_matrix(position), quaternion_matrix(quaternion))
-  print('Matrix:\n%s' % matrix)
-  poseMsg = homogeneous2pose_msg(matrix)
-  print('geometry_msgs/Pose:\n%s' % poseMsg)
-  rpy = homogeneous2rpy(matrix)
+  pose_msg = homogeneous2pose_msg(homogeneous)
+  print('geometry_msgs/Pose:\n%s' % pose_msg)
+  rpy = homogeneous2rpy(homogeneous)
   print('RPY: %s' % str(rpy))
-  axis_angle = homogeneous2axis_angle(matrix)
+  axis_angle = homogeneous2axis_angle(homogeneous)
   print('Axis Angle: %s' % str(axis_angle))
   print('As static publisher: rosrun tf static_transform_publisher  %s  %s  %s %s 100' % (' '.join([str(p) for p in position]), ' '.join([str(q) for q in quaternion]), from_tf, to_tf))
 
